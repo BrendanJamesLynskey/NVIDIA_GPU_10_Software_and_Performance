@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVIDIA GPU Architectures 10 — Software Stack &amp; Performance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-card: #0d1117;
+            --bg-code: #161b22;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #76B900;
+            --accent-dim: #76B90044;
+            --accent-glow: #76B90033;
+            --border: #21262d;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-body: 'Inter', sans-serif;
+            --max-width: 900px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 .accent {
+            color: var(--accent);
+        }
+
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 2rem;
+        }
+
+        /* ── Tag Pills ── */
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+
+        /* ── Pipeline Flow Bar ── */
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .pipeline-arrow {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        /* ── Slides ── */
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .slide p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .slide p strong {
+            color: var(--text-primary);
+        }
+
+        .slide ul, .slide ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .slide li {
+            margin-bottom: 0.4rem;
+        }
+
+        .slide li strong {
+            color: var(--text-primary);
+        }
+
+        /* ── Code Blocks ── */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-block pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+        }
+
+        /* Syntax highlighting (manual) */
+        .kw { color: #ff7b72; }
+        .fn { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+        .type { color: #ffa657; }
+        .dir { color: #ff7b72; }
+        .mac { color: #ffa657; }
+
+        /* ── Tables ── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) td {
+            background: rgba(13, 17, 23, 0.5);
+        }
+
+        /* ── Diagrams ── */
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .diagram-box.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+        }
+
+        .diagram-box.dim {
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        .diagram-arrow {
+            color: var(--accent);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Vertical flow diagrams */
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-vertical .diagram-arrow {
+            font-size: 1.1rem;
+        }
+
+        /* Nested hierarchy diagram */
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .hierarchy-level {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .hierarchy-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .hierarchy-item.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+        }
+
+        /* Grid diagram */
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-grid.cols-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .diagram-grid.cols-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .diagram-panel.accent-border {
+            border-left: 3px solid var(--accent);
+        }
+
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .diagram-panel p, .diagram-panel ul {
+            font-size: 0.85rem;
+        }
+
+        /* ── Callout Boxes ── */
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+
+        .callout p {
+            margin-bottom: 0;
+        }
+
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+
+        /* ── Tier Visual ── */
+        .tier-visual {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .tier-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .tier-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 90px;
+            text-align: right;
+        }
+
+        .tier-fill {
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            transition: width 0.6s ease;
+        }
+
+        .tier-cost {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            min-width: 70px;
+        }
+
+        /* ── Contents list ── */
+        .contents-list {
+            list-style: none;
+            padding-left: 0;
+            counter-reset: contents;
+        }
+
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contents-list li:last-child {
+            border-bottom: none;
+        }
+
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+
+        .contents-list a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .contents-list a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .slide {
+                padding: 3rem 1rem;
+                min-height: auto;
+            }
+
+            .slide-number {
+                font-size: 3rem;
+                top: 1.5rem;
+                right: 1rem;
+            }
+
+            .slide h2 {
+                font-size: 1.5rem;
+            }
+
+            .diagram-grid.cols-2,
+            .diagram-grid.cols-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .pipeline {
+                gap: 0.15rem;
+            }
+
+            .pipeline-step {
+                font-size: 0.6rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                font-size: 0.78rem;
+            }
+
+            .tier-label {
+                min-width: 60px;
+                font-size: 0.65rem;
+            }
+
+            .tier-fill {
+                font-size: 0.6rem;
+                height: 26px;
+            }
+        }
+
+        /* ── Interactive controls (added for Local LLM series) ── */
+        .control-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .control-row label {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 180px;
+        }
+        .control-row input[type="range"] {
+            flex: 1;
+            min-width: 160px;
+            accent-color: var(--accent);
+        }
+        .control-row input[type="number"],
+        .control-row select {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 4px;
+            padding: 0.3rem 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+        .control-row .val {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 80px;
+            text-align: right;
+        }
+        .btn {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.4rem 0.9rem;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .btn:hover { background: rgba(118, 185, 0, 0.2); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn.secondary {
+            background: var(--bg-code);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+        .result-box {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            margin-top: 0.75rem;
+        }
+        .result-box .line-label { color: var(--text-secondary); }
+        .result-box .line-val   { color: var(--accent); font-weight: 600; }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .metric {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            text-align: center;
+        }
+        .metric .metric-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .metric .metric-value {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            color: var(--accent);
+            font-weight: 600;
+            margin-top: 0.2rem;
+        }
+
+        /* Canvas / SVG containers */
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas,
+        .canvas-wrap svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+
+        /* Small inline badge */
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #ffa657; color: #ffa657; background: rgba(255,166,87,0.08); }
+        .badge.bad   { border-color: #ff7b72; color: #ff7b72; background: rgba(255,123,114,0.08); }
+
+    </style>
+</head>
+<body>
+
+<header class="hero">
+    <div class="series-label">NVIDIA GPU Architectures Series — Presentation 10</div>
+    <h1><span class="accent">Software Stack &amp; Performance</span> &mdash; From CUDA to LLM Throughput</h1>
+    <p class="subtitle">Hardware does nothing without the software stack that exposes it. Walk through CUDA's layers &mdash; driver, runtime, libraries, frameworks &mdash; meet cuBLAS, cuDNN, CUTLASS, NCCL, Triton, Transformer Engine, TensorRT-LLM &mdash; and finish with a performance model that turns a GPU's spec sheet into actual LLM tok/s.</p>
+
+    <div class="tags">
+        <span class="tag">CUDA</span><span class="tag">cuBLAS</span><span class="tag">cuDNN</span>
+        <span class="tag">CUTLASS</span><span class="tag">NCCL</span><span class="tag">TensorRT-LLM</span>
+        <span class="tag">Transformer Engine</span><span class="tag">Triton</span>
+        <span class="tag">Flash-Attn</span><span class="tag">Performance Model</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">Driver</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Runtime</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">cuBLAS</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">cuDNN</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">NCCL</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Frameworks</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">TRT-LLM</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Perf</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We'll Cover</h2>
+    <p>The capstone of the architecture series. Up to this point we have inspected the silicon &mdash; SMs, tensor cores, memory hierarchy, NVLink, every architecture from Ampere to Blackwell. None of that runs an LLM by itself. The software stack is what turns a transistor count into a tok/s number.</p>
+    <ul class="contents-list">
+        <li><a href="#slide-01">The CUDA Stack &mdash; Layered Cake</a></li>
+        <li><a href="#slide-02">cuBLAS / cuBLASLt &mdash; Matrix Multiplication</a></li>
+        <li><a href="#slide-03">cuDNN &mdash; Deep Neural Networks</a></li>
+        <li><a href="#slide-04">CUTLASS &mdash; Templates for Custom Matmul</a></li>
+        <li><a href="#slide-05">Transformer Engine &mdash; Auto FP8/FP4</a></li>
+        <li><a href="#slide-06">NCCL &mdash; Collective Comms</a></li>
+        <li><a href="#slide-07">Triton &mdash; Python-First Kernel DSL</a></li>
+        <li><a href="#slide-08">TensorRT-LLM + vLLM + SGLang &mdash; The Inference Layer</a></li>
+        <li><a href="#slide-09">Performance Model &mdash; Decode-Bound vs Prefill-Bound</a></li>
+        <li><a href="#slide-10">Tensor Parallel Scaling &mdash; How Architectures Differ</a></li>
+        <li><a href="#slide-11">Interactive: End-to-End LLM Performance Model</a></li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>The CUDA Stack &mdash; Layered Cake</h2>
+    <p>Every call from <code>model.generate(...)</code> down to a tensor-core instruction passes through six layers. Knowing where each layer sits is the difference between debugging a NCCL timeout and hunting a kernel-mode firmware bug.</p>
+
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 720 360" width="720" height="360" xmlns="http://www.w3.org/2000/svg">
+            <style>
+                .lyr   { stroke: #30363d; }
+                .l-app { fill: rgba(165,214,255,0.18); stroke: #a5d6ff; }
+                .l-lib { fill: rgba(118,185,0,0.15); stroke: #76B900; }
+                .l-rt  { fill: rgba(210,168,255,0.18); stroke: #d2a8ff; }
+                .l-drv { fill: rgba(255,166,87,0.18); stroke: #ffa657; }
+                .l-km  { fill: rgba(255,123,114,0.18); stroke: #ff7b72; }
+                .l-hw  { fill: rgba(118,185,0,0.30); stroke: #76B900; }
+                .lab   { fill: #e6edf3; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13px; }
+                .sub   { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; }
+                .arrow { stroke: #76B900; stroke-width: 1.2; fill: none; marker-end: url(#a); }
+            </style>
+            <defs>
+                <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M0,0 L10,5 L0,10 z" fill="#76B900"/>
+                </marker>
+            </defs>
+
+            <rect x="40" y="20"  width="640" height="44" rx="6" class="lyr l-app"/>
+            <text x="60" y="40" class="lab">User code &mdash; PyTorch / JAX / vLLM / TRT-LLM</text>
+            <text x="60" y="56" class="sub">model.generate(), torch.compile(), te.fp8_autocast()</text>
+
+            <rect x="40" y="74"  width="640" height="50" rx="6" class="lyr l-lib"/>
+            <text x="60" y="93" class="lab">High-level libraries</text>
+            <text x="60" y="110" class="sub">cuBLASLt &middot; cuDNN &middot; NCCL &middot; Transformer Engine &middot; Flash-Attn &middot; CUTLASS templates</text>
+
+            <rect x="40" y="134" width="640" height="44" rx="6" class="lyr l-rt"/>
+            <text x="60" y="154" class="lab">CUDA Runtime API (libcudart)</text>
+            <text x="60" y="170" class="sub">cudaMalloc &middot; cudaMemcpy &middot; cudaLaunchKernel &middot; cudaStreamCreate</text>
+
+            <rect x="40" y="188" width="640" height="44" rx="6" class="lyr l-drv"/>
+            <text x="60" y="208" class="lab">CUDA Driver API (libcuda)</text>
+            <text x="60" y="224" class="sub">cuCtxCreate &middot; cuModuleLoad &middot; cuLaunchKernel &middot; cuStreamCreate</text>
+
+            <rect x="40" y="242" width="640" height="44" rx="6" class="lyr l-km"/>
+            <text x="60" y="262" class="lab">NVIDIA Driver &mdash; kernel module + GSP firmware</text>
+            <text x="60" y="278" class="sub">nvidia.ko &middot; nvidia-uvm.ko &middot; GSP RM offload &middot; doorbells, page tables, MMIO</text>
+
+            <rect x="40" y="296" width="640" height="44" rx="6" class="lyr l-hw"/>
+            <text x="60" y="316" class="lab">Hardware &mdash; GPU</text>
+            <text x="60" y="332" class="sub">SMs &middot; tensor cores &middot; HBM/GDDR &middot; NVLink &middot; copy engines &middot; PCIe</text>
+
+            <path d="M360,64 V74"   class="arrow"/>
+            <path d="M360,124 V134" class="arrow"/>
+            <path d="M360,178 V188" class="arrow"/>
+            <path d="M360,232 V242" class="arrow"/>
+            <path d="M360,286 V296" class="arrow"/>
+        </svg>
+    </div>
+
+    <h3>CUDA versions vs minimum hardware</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Architecture</th><th>Compute capability</th><th>Min CUDA toolkit</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>Ampere (A100, 30xx, A40, A6000)</td><td>8.0 / 8.6</td><td>CUDA 11.0+</td><td>Third-gen tensor cores, BF16, async copy.</td></tr>
+                <tr><td>Ada Lovelace (40xx, L4, L40S)</td><td>8.9</td><td>CUDA 11.8+</td><td>FP8 tensor cores on L40S; SM89 PTX target.</td></tr>
+                <tr><td>Hopper (H100, H200, GH200)</td><td>9.0</td><td>CUDA 11.8+ (12.x recommended)</td><td>WGMMA, TMA, thread-block clusters, FP8.</td></tr>
+                <tr><td>Blackwell (B100, B200, GB200, 50xx)</td><td>10.0 / 12.0</td><td>CUDA 12.5+</td><td>5th-gen tensor cores, MX-FP4, TMEM.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Why each layer exists</div>
+        <p>The split is deliberate. <strong>Runtime</strong> is the convenience layer most developers use; <strong>Driver API</strong> is what JIT compilers and engines like TRT-LLM actually call so they can manage modules and contexts explicitly. Underneath, the kernel module is no longer a giant blob &mdash; since Open GPU Kernel Modules in 2022, the resource manager runs as <strong>GSP firmware</strong> on a small RISC-V on the GPU itself, and the host driver mostly marshals messages to it.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>cuBLAS / cuBLASLt &mdash; Matrix Multiplication</h2>
+    <p>The whole transformer is, fundamentally, a stack of matrix multiplications interleaved with elementwise ops. Whatever framework you use, almost every FLOP eventually lands in cuBLAS or its successor cuBLASLt.</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>cuBLAS &mdash; classic BLAS</h4>
+            <p>The original NVIDIA BLAS implementation. Provides <code>cublasSgemm</code>, <code>cublasHgemm</code>, <code>cublasGemmEx</code>, <code>cublasGemmStridedBatchedEx</code> and so on. Static algorithm selection per (precision, transpose) pair. Still used everywhere, but the ergonomics are showing their age.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>cuBLASLt &mdash; "Lt" = light-weight</h4>
+            <p>Newer API with <em>problem descriptors</em> and <em>algorithm heuristics</em>. The library inspects matrix shapes, layouts, alignment and bias/activation epilogues, then selects the best kernel from its catalogue. Required for FP8 (Hopper+) and MX-FP4 (Blackwell). PyTorch's <code>torch.matmul</code> dispatches here for big shapes.</p>
+        </div>
+    </div>
+
+    <h3>FP8 matmul on Hopper, with FP32 accumulator</h3>
+    <div class="code-block">
+        <div class="code-header">cublasLtMatmul &mdash; A=FP8, B=FP8, C=BF16, accum=FP32 (sketch)</div>
+        <pre><code><span class="cm">// Descriptors set: A=E4M3 row, B=E4M3 col, scaleType=FP32, accumType=FP32, output=BF16</span>
+<span class="type">cublasLtMatmulDesc_t</span> op;
+<span class="fn">cublasLtMatmulDescCreate</span>(&amp;op, CUBLAS_COMPUTE_32F, CUDA_R_32F);
+<span class="fn">cublasLtMatmulDescSetAttribute</span>(op, CUBLASLT_MATMUL_DESC_A_SCALE_POINTER, &amp;a_scale, <span class="kw">sizeof</span>(<span class="kw">void</span>*));
+<span class="fn">cublasLtMatmulDescSetAttribute</span>(op, CUBLASLT_MATMUL_DESC_B_SCALE_POINTER, &amp;b_scale, <span class="kw">sizeof</span>(<span class="kw">void</span>*));
+
+<span class="cm">// Heuristic asks the library what kernel + workspace fit this problem</span>
+<span class="type">cublasLtMatmulHeuristicResult_t</span> heur[<span class="num">8</span>];
+<span class="kw">int</span> n;
+<span class="fn">cublasLtMatmulAlgoGetHeuristic</span>(handle, op, ad, bd, cd, dd, pref, <span class="num">8</span>, heur, &amp;n);
+
+<span class="cm">// Three-line execution: A * B + bias, with chosen algo and workspace</span>
+<span class="fn">cublasLtMatmul</span>(handle, op,
+    &amp;alpha, A, ad, B, bd, &amp;beta, C, cd, D, dd,
+    &amp;heur[<span class="num">0</span>].algo, workspace, ws_bytes, stream);</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">The workspace and the algo cache</div>
+        <p>Every cuBLASLt matmul wants a <strong>workspace</strong> &mdash; scratch HBM for tiling and split-K accumulators. PyTorch defaults to 4&ndash;32 MiB; bigger workspaces let the library pick faster kernels. The <strong>algo cache</strong> stores the heuristic decision per problem shape so the second call is essentially free; warm-up matters &mdash; the first batch of a new shape is always slower.</p>
+    </div>
+
+    <h3>Where cuBLASLt earns its keep</h3>
+    <ul>
+        <li><strong>Mixed precision in one call.</strong> FP8 weights, BF16 activations, FP32 accumulator, BF16 output &mdash; all expressed in descriptors, no manual upcasting.</li>
+        <li><strong>Fused epilogues.</strong> Bias add, GELU, ReLU, dropout mask all run in the same kernel, no extra HBM round-trip.</li>
+        <li><strong>Per-tensor or per-channel scales.</strong> The scaling factors that FP8 / MX-FP4 need are first-class arguments.</li>
+        <li><strong>Automatic algo selection.</strong> No more "I tuned this kernel for B=32 and now B=33 is 4&times; slower."</li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>cuDNN &mdash; Deep Neural Networks</h2>
+    <p>cuDNN is the layer above cuBLAS that knows what a <em>neural network</em> is rather than just a matrix. Convolutions, attention, normalization, activations, pooling, RNN cells &mdash; the abstraction is "an op fused into a graph", not "a single GEMM".</p>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Op family</th><th>What cuDNN provides</th><th>LLM relevance</th></tr></thead>
+            <tbody>
+                <tr><td>Convolution</td><td>Forward, backward-data, backward-weights; multiple algorithms (implicit GEMM, Winograd, FFT)</td><td>Marginal &mdash; LLMs are mostly attention + MLP. Vision encoders still rely on it.</td></tr>
+                <tr><td>Attention (frontend)</td><td>Fused multi-head attention, flash-attention-style kernels, grouped-query and MQA support</td><td><strong>Critical.</strong> cuDNN 9 is now the preferred path for transformer attention on Hopper/Blackwell.</td></tr>
+                <tr><td>Normalization</td><td>LayerNorm, RMSNorm, batchnorm, groupnorm &mdash; all with fused affine + epilogue</td><td>RMSNorm is in every modern LLM block.</td></tr>
+                <tr><td>Activation</td><td>GELU, SiLU, ReLU, softmax (with online streaming variants)</td><td>SiLU/GELU in the MLP, online-softmax in attention.</td></tr>
+                <tr><td>Graph API</td><td>Build a DAG of fused ops, let cuDNN pick a single kernel</td><td>How modern frameworks register custom fused blocks.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>cuDNN 9's flash-attention-style attention</h3>
+    <div class="code-block">
+        <div class="code-header">cuDNN frontend &mdash; fused FP16 attention (sketch)</div>
+        <pre><code><span class="cm"># Python via cudnn-frontend bindings &mdash; simplified</span>
+<span class="kw">import</span> cudnn
+
+graph = cudnn.<span class="fn">pygraph</span>(io_data_type=cudnn.data_type.HALF)
+
+q = graph.<span class="fn">tensor_like</span>(Q)   <span class="cm"># [B, H, S, D]</span>
+k = graph.<span class="fn">tensor_like</span>(K)
+v = graph.<span class="fn">tensor_like</span>(V)
+
+o, stats = graph.<span class="fn">sdpa</span>(
+    name=<span class="str">"sdpa"</span>, q=q, k=k, v=v,
+    is_inference=<span class="kw">True</span>,
+    attn_scale=<span class="num">1.0</span>/math.<span class="fn">sqrt</span>(D),
+    use_causal_mask=<span class="kw">True</span>,
+    use_alibi=<span class="kw">False</span>,
+)
+o.<span class="fn">set_output</span>(<span class="kw">True</span>).<span class="fn">set_dim</span>([B, H, S, D])
+
+graph.<span class="fn">build</span>([cudnn.heur_mode.A])  <span class="cm"># picks best kernel for shape</span>
+graph.<span class="fn">execute</span>({q: Q, k: K, v: V, o: O}, workspace)</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Why frameworks moved to cuDNN attention</div>
+        <p>Before cuDNN 9, the universe of fused-attention kernels was a maze of community CUDA &mdash; flash-attn-2, xFormers, custom Triton, every one with its own quirks. cuDNN 9 centralised it: one frontend, one kernel catalogue, hardware-vendor-supported, with FP8 paths on Hopper and MX-FP4 paths on Blackwell. PyTorch's <code>F.scaled_dot_product_attention</code> now prefers cuDNN's implementation when available.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>CUTLASS &mdash; Templates for Custom Matmul</h2>
+    <p>cuBLAS is a black box; you call it, it returns a result. CUTLASS is the opposite: a header-only C++ template library that exposes every level of the matmul hierarchy &mdash; tile shape, warp tile, instruction tile, pipeline depth, epilogue &mdash; for you to compose. NVIDIA writes its own kernels with it, and so does every research lab.</p>
+
+    <h3>When canned cuBLAS isn't right</h3>
+    <ul>
+        <li><strong>Custom epilogue.</strong> "Multiply, add bias, then RoPE-rotate the output." cuBLASLt has many fused epilogues but not every one.</li>
+        <li><strong>Sparsity layouts.</strong> 2:4 structured sparsity, block-sparse, MoE-style block-diagonal &mdash; CUTLASS exposes the iterator primitives.</li>
+        <li><strong>Quantization shapes.</strong> INT4 with GPTQ groupwise scales, AWQ packed layouts, NVFP4 / MX-FP4 microblock metadata.</li>
+        <li><strong>Research kernels.</strong> Streamed attention variants, mixture-of-experts grouped GEMM, distributed weight-streaming matmul.</li>
+    </ul>
+
+    <div class="hierarchy">
+        <div class="hierarchy-level">
+            <div class="hierarchy-label">3.x core</div>
+            <div class="hierarchy-items">
+                <span class="hierarchy-item accent">Layout</span>
+                <span class="hierarchy-item accent">Tile</span>
+                <span class="hierarchy-item accent">Copy</span>
+                <span class="hierarchy-item accent">Mma</span>
+                <span class="hierarchy-item">Pipeline</span>
+                <span class="hierarchy-item">Epilogue</span>
+            </div>
+        </div>
+        <div class="hierarchy-level">
+            <div class="hierarchy-label">Hopper</div>
+            <div class="hierarchy-items">
+                <span class="hierarchy-item">WGMMA atoms</span>
+                <span class="hierarchy-item">TMA loaders</span>
+                <span class="hierarchy-item">Cluster launch</span>
+                <span class="hierarchy-item">Async barrier</span>
+            </div>
+        </div>
+        <div class="hierarchy-level">
+            <div class="hierarchy-label">Blackwell</div>
+            <div class="hierarchy-items">
+                <span class="hierarchy-item">MX-FP4 atoms</span>
+                <span class="hierarchy-item">TMEM accumulators</span>
+                <span class="hierarchy-item">5th-gen MMA</span>
+                <span class="hierarchy-item">UMMA</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-block">
+        <div class="code-header">CUTLASS 3.x &mdash; declaring a Hopper FP8 GEMM (sketch)</div>
+        <pre><code><span class="cm">// Pick the architecture-specific atoms</span>
+<span class="kw">using</span> ArchTag    = cutlass::arch::Sm90;
+<span class="kw">using</span> ElementA   = cutlass::float_e4m3_t;   <span class="cm">// FP8 E4M3</span>
+<span class="kw">using</span> ElementB   = cutlass::float_e4m3_t;
+<span class="kw">using</span> ElementAcc = <span class="kw">float</span>;                  <span class="cm">// FP32 accumulate</span>
+<span class="kw">using</span> ElementC   = cutlass::bfloat16_t;     <span class="cm">// BF16 output</span>
+
+<span class="kw">using</span> TileShape = Shape&lt;_128, _128, _64&gt;;  <span class="cm">// CTA-level tile</span>
+<span class="kw">using</span> ClusterShape = Shape&lt;_2, _1, _1&gt;;    <span class="cm">// thread-block cluster</span>
+
+<span class="cm">// Compose mainloop + epilogue</span>
+<span class="kw">using</span> Mainloop = cutlass::gemm::collective::CollectiveBuilder&lt;
+    ArchTag, OperatorClass, ElementA, LayoutA, AlignA,
+    ElementB, LayoutB, AlignB, ElementAcc,
+    TileShape, ClusterShape,
+    cutlass::gemm::collective::StageCountAuto,
+    cutlass::gemm::KernelTmaWarpSpecializedPingpong &gt;::CollectiveOp;</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Version pin</div>
+        <p>CUTLASS <strong>3.x</strong> is the rewrite around <em>CuTe</em> (the new layout algebra) and is required for Hopper WGMMA-aware kernels. CUTLASS <strong>3.5+</strong> introduced first-class MX-FP4 atoms for Blackwell. If you are studying flash-attention-3, DeepSeek's grouped GEMM, or NVIDIA's MoE kernels, you are reading CUTLASS 3.x.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Transformer Engine &mdash; Auto FP8/FP4</h2>
+    <p>Decks 03 and 07 covered the silicon: per-tensor FP8 scales on Hopper, per-microblock MX-FP4 on Blackwell. Deck 09 covered the second-gen Transformer Engine on Blackwell. <strong>Transformer Engine the library</strong> is the piece that drives the silicon.</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>What it does</h4>
+            <p>Replaces <code>nn.Linear</code> and the attention block with versions that:</p>
+            <ul>
+                <li>Track activation amax over a sliding window per tensor.</li>
+                <li>Compute per-tensor scaling factors so values fit in FP8 dynamic range.</li>
+                <li>Fuse cast-to-FP8 + GEMM + cast-back-to-BF16 in a single cuBLASLt call.</li>
+                <li>Emit FP8 weight tensors at save time so checkpoints round-trip.</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Hopper vs Blackwell scaling</h4>
+            <p>Hopper TE: <strong>per-tensor</strong> scale. One scaling factor per (weight, activation) tensor. Good enough for most LLMs.</p>
+            <p>Blackwell TE2: <strong>per-microblock</strong> MX-FP4. Each block of 32 elements has its own E8M0 scale, supported in hardware. Quality is materially better, allowing FP4 weights for inference.</p>
+            <p>Both expose the same Python API; the engine picks the right kernel.</p>
+        </div>
+    </div>
+
+    <h3>The Python integration</h3>
+    <div class="code-block">
+        <div class="code-header">PyTorch &mdash; replacing Linear with TE Linear</div>
+        <pre><code><span class="kw">import</span> transformer_engine.pytorch <span class="kw">as</span> te
+<span class="kw">from</span> transformer_engine.common <span class="kw">import</span> recipe
+
+<span class="cm"># A transformer block, with TE-aware Linear and LayerNorm</span>
+<span class="kw">class</span> <span class="type">Block</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, d, hidden):
+        <span class="kw">super</span>().<span class="fn">__init__</span>()
+        <span class="kw">self</span>.norm = te.<span class="type">RMSNorm</span>(d)
+        <span class="kw">self</span>.fc1  = te.<span class="type">Linear</span>(d, hidden)        <span class="cm"># &lt;-- not torch.nn.Linear</span>
+        <span class="kw">self</span>.fc2  = te.<span class="type">Linear</span>(hidden, d)
+
+<span class="cm"># Per-tensor scaling recipe (Hopper); MX recipe on Blackwell</span>
+fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
+    margin=<span class="num">0</span>, fp8_format=recipe.Format.HYBRID,
+    amax_history_len=<span class="num">16</span>, amax_compute_algo=<span class="str">"max"</span>)
+
+<span class="cm"># Forward inside the autocast block runs FP8 in tensor cores</span>
+<span class="kw">with</span> te.<span class="fn">fp8_autocast</span>(enabled=<span class="kw">True</span>, fp8_recipe=fp8_recipe):
+    y = block(x)</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Why bother &mdash; the numbers</div>
+        <p>On H100, switching a 70B fine-tune from BF16 to FP8 via Transformer Engine roughly <strong>halves</strong> step time and memory pressure with quality essentially unchanged. On B200 the second-gen engine extends the same trick to FP4 inference, doubling throughput again over H100 FP8 for the right workloads. None of that is automatic from the framework alone &mdash; the layer-replacement and the autocast block are how you opt in.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>NCCL &mdash; Collective Comms</h2>
+    <p>Once a model crosses one GPU, every step gathers, all-reduces, or reduce-scatters tensors across ranks. NCCL (NVIDIA Collective Communications Library) is the implementation. It is in every distributed framework: PyTorch DDP, FSDP, vLLM TP, Megatron, JAX. Bad NCCL configuration is the most common cause of "8 GPUs do less than 4".</p>
+
+    <h3>Collectives that matter for transformers</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Op</th><th>Used by</th><th>Bytes moved per call</th></tr></thead>
+            <tbody>
+                <tr><td><code>ncclAllReduce</code></td><td>TP attention + MLP output sums; DP gradient sync</td><td>2 &times; (1 - 1/N) &times; tensor_bytes</td></tr>
+                <tr><td><code>ncclAllGather</code></td><td>FSDP weight gather; sequence-parallel input gather</td><td>(N - 1) / N &times; tensor_bytes per rank</td></tr>
+                <tr><td><code>ncclReduceScatter</code></td><td>FSDP gradient shard; sequence-parallel output reduce</td><td>(N - 1) / N &times; tensor_bytes per rank</td></tr>
+                <tr><td><code>ncclSend</code> / <code>ncclRecv</code></td><td>Pipeline-parallel stage handoff; expert-parallel routing</td><td>tensor_bytes (pairwise)</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Algorithms NCCL picks between</h3>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel accent-border">
+            <h4>Ring</h4>
+            <p>Each rank sends to its right neighbour, receives from its left, in 2(N&minus;1) steps. Bandwidth-optimal on big tensors. Default for large all-reduces over NVSwitch or fast PCIe.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Tree</h4>
+            <p>Two trees overlaid &mdash; reduce up one, broadcast down the other. Latency-optimal on small messages and across deep network hops. Used for cross-node IB.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>NVLS (NVLink-Sharp)</h4>
+            <p>Hardware-accelerated reduction <em>inside the NVSwitch</em>. Bytes only cross the switch once and are reduced in flight. Massive win on NVL72 and HGX H100/H200/B200 boxes.</p>
+        </div>
+    </div>
+
+    <h3>Critical environment knobs</h3>
+    <div class="code-block">
+        <div class="code-header">NCCL knobs that change throughput by 2&times;</div>
+        <pre><code><span class="cm"># Pick the algorithm explicitly &mdash; default heuristics are usually right but not always</span>
+<span class="kw">export</span> NCCL_ALGO=Ring                     <span class="cm"># or Tree, or NVLS, or NVLSTree</span>
+<span class="kw">export</span> NCCL_PROTO=Simple                  <span class="cm"># Simple | LL | LL128</span>
+
+<span class="cm"># Enable in-network reductions on NVSwitch (Hopper/Blackwell HGX, NVL72)</span>
+<span class="kw">export</span> NCCL_NVLS_ENABLE=<span class="num">1</span>
+
+<span class="cm"># Diagnostics</span>
+<span class="kw">export</span> NCCL_DEBUG=INFO
+<span class="kw">export</span> NCCL_TOPO_DUMP_FILE=/tmp/topo.xml
+
+<span class="cm"># Turn off PXN if you are debugging weird stalls; turn it back on for perf</span>
+<span class="kw">export</span> NCCL_PXN_DISABLE=<span class="num">0</span>
+
+<span class="cm"># Force IB over a particular HCA, exclude management interfaces</span>
+<span class="kw">export</span> NCCL_IB_HCA=mlx5_0,mlx5_1
+<span class="kw">export</span> NCCL_SOCKET_IFNAME=^lo,docker0</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">The real-world failure</div>
+        <p>A common pattern: an 8&times;H100 node with NVSwitch is configured but <code>NCCL_NVLS_ENABLE</code> was left at <code>0</code>. TP-8 throughput halves silently. Or: a Kubernetes pod has <code>NCCL_SOCKET_IFNAME</code> picking a CNI overlay interface, and the all-reduce traverses the host network instead of NVLink. Always print the topology with <code>NCCL_DEBUG=INFO</code> and verify the chosen algo and protocol on first run.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>Triton &mdash; Python-First Kernel DSL</h2>
+    <p>Until Triton, writing a custom CUDA kernel meant C++, CUTLASS templates, and very specific knowledge of warp scheduling. Triton (originally OpenAI) provides a Python-like language where you express tile-level ops on tensors, and a compiler handles vectorisation, shared-memory tiling, and warp-level scheduling automatically.</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>What it gives you</h4>
+            <ul>
+                <li>Block-level loops over tensor tiles, not threads.</li>
+                <li>Automatic shared-memory staging for loads.</li>
+                <li>Automatic vectorisation and instruction scheduling.</li>
+                <li>JIT compilation per shape, with a kernel cache.</li>
+                <li>Targets Hopper WGMMA and Blackwell tensor cores via the Triton compiler backends.</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Where you'll meet it</h4>
+            <ul>
+                <li><strong><code>torch.compile</code></strong> generates Triton kernels for fused operators.</li>
+                <li><strong>FlashAttention 2/3</strong> reference implementations.</li>
+                <li><strong>Mamba / SSM</strong> selective-scan kernels.</li>
+                <li><strong>vLLM</strong> uses Triton for paged-attention helpers and quantization kernels.</li>
+                <li>Most cutting-edge research kernels ship as Triton first, CUDA later (or never).</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>A Triton matmul, end to end</h3>
+    <div class="code-block">
+        <div class="code-header">Triton FP16 matmul &mdash; ~30 lines, runs on any modern arch</div>
+        <pre><code><span class="kw">import</span> torch, triton
+<span class="kw">import</span> triton.language <span class="kw">as</span> tl
+
+<span class="dir">@triton.jit</span>
+<span class="kw">def</span> <span class="fn">matmul_kernel</span>(A, B, C, M, N, K,
+                  sa0, sa1, sb0, sb1, sc0, sc1,
+                  BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr):
+    pid_m = tl.<span class="fn">program_id</span>(<span class="num">0</span>)
+    pid_n = tl.<span class="fn">program_id</span>(<span class="num">1</span>)
+    rm = pid_m * BM + tl.<span class="fn">arange</span>(<span class="num">0</span>, BM)
+    rn = pid_n * BN + tl.<span class="fn">arange</span>(<span class="num">0</span>, BN)
+    rk = tl.<span class="fn">arange</span>(<span class="num">0</span>, BK)
+
+    a_ptr = A + rm[:, <span class="kw">None</span>] * sa0 + rk[<span class="kw">None</span>, :] * sa1
+    b_ptr = B + rk[:, <span class="kw">None</span>] * sb0 + rn[<span class="kw">None</span>, :] * sb1
+    acc   = tl.<span class="fn">zeros</span>([BM, BN], dtype=tl.float32)
+
+    <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(<span class="num">0</span>, K, BK):
+        a = tl.<span class="fn">load</span>(a_ptr, mask=(rm[:, <span class="kw">None</span>] &lt; M) &amp; (rk[<span class="kw">None</span>, :] + k &lt; K))
+        b = tl.<span class="fn">load</span>(b_ptr, mask=(rk[:, <span class="kw">None</span>] + k &lt; K) &amp; (rn[<span class="kw">None</span>, :] &lt; N))
+        acc += tl.<span class="fn">dot</span>(a, b)            <span class="cm"># maps to WMMA / WGMMA / Blackwell MMA</span>
+        a_ptr += BK * sa1
+        b_ptr += BK * sb0
+
+    c_ptr = C + rm[:, <span class="kw">None</span>] * sc0 + rn[<span class="kw">None</span>, :] * sc1
+    tl.<span class="fn">store</span>(c_ptr, acc.<span class="fn">to</span>(tl.float16),
+             mask=(rm[:, <span class="kw">None</span>] &lt; M) &amp; (rn[<span class="kw">None</span>, :] &lt; N))
+
+<span class="kw">def</span> <span class="fn">matmul</span>(a, b, BM=<span class="num">128</span>, BN=<span class="num">128</span>, BK=<span class="num">32</span>):
+    M, K = a.shape; _, N = b.shape
+    c = torch.<span class="fn">empty</span>((M, N), device=a.device, dtype=torch.float16)
+    grid = (triton.<span class="fn">cdiv</span>(M, BM), triton.<span class="fn">cdiv</span>(N, BN))
+    matmul_kernel[grid](a, b, c, M, N, K,
+                        a.stride(<span class="num">0</span>), a.stride(<span class="num">1</span>),
+                        b.stride(<span class="num">0</span>), b.stride(<span class="num">1</span>),
+                        c.stride(<span class="num">0</span>), c.stride(<span class="num">1</span>),
+                        BM=BM, BN=BN, BK=BK)
+    <span class="kw">return</span> c</code></pre>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Triton vs CUTLASS</div>
+        <p>Roughly: <strong>CUTLASS</strong> is what you reach for when you want to wring the last 5% out of a kernel and you know exactly which tensor-core instruction you want. <strong>Triton</strong> is what you reach for when you want a kernel that is 90% of optimal in 30 lines and runs on the next architecture without rewriting. Modern frameworks contain both; <code>torch.compile</code> emits Triton for fused ops and falls back to cuBLAS/CUTLASS for big GEMMs.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>TensorRT-LLM + vLLM + SGLang &mdash; The Inference Layer</h2>
+    <p>Above all the kernels sits the <em>inference engine</em> &mdash; the thing that schedules requests, manages KV cache, batches prompts, and turns a model checkpoint into an HTTP-served chat completion. Three engines dominate in 2026.</p>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>&nbsp;</th><th>TensorRT-LLM</th><th>vLLM</th><th>SGLang</th></tr></thead>
+            <tbody>
+                <tr><td>Origin</td><td>NVIDIA, closed-ish</td><td>Berkeley + community</td><td>LMSYS + community</td></tr>
+                <tr><td>Build model</td><td>Offline-compiled <em>engine</em> per (model, GPU, precision)</td><td>JIT graph at load time</td><td>JIT graph at load time</td></tr>
+                <tr><td>Cold start</td><td><span class="badge bad">slow</span> minutes; engine build is heavy</td><td><span class="badge ok">fast</span> seconds</td><td><span class="badge ok">fast</span> seconds</td></tr>
+                <tr><td>KV-cache scheme</td><td>Paged + in-flight batching</td><td>PagedAttention + continuous batching</td><td>RadixAttention &mdash; prefix-shared KV</td></tr>
+                <tr><td>Precisions</td><td>FP16, BF16, FP8 (Hopper+), MX-FP4 (Blackwell), INT4 AWQ</td><td>FP16, BF16, FP8, MX-FP4, AWQ, GPTQ</td><td>FP16, BF16, FP8, AWQ</td></tr>
+                <tr><td>Custom kernels</td><td>NVIDIA-tuned CUTLASS, plugins</td><td>CUDA + Triton + Flash-Attn</td><td>CUDA + Triton, plus structured-output pipeline</td></tr>
+                <tr><td>Throughput</td><td><span class="badge ok">peak</span> on supported configs</td><td>Strong, very close to TRT-LLM</td><td>Strong, especially with shared prefixes</td></tr>
+                <tr><td>Ease of use</td><td><span class="badge warn">heavy</span> per-engine build</td><td><span class="badge ok">light</span> install + serve</td><td><span class="badge ok">light</span></td></tr>
+                <tr><td>Niche strength</td><td>Static deployments, FP8/FP4 perf</td><td>General-purpose, broad model coverage</td><td>Structured output, agent workflows, big-prefix RAG</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>What TensorRT-LLM's engine actually contains</h3>
+    <ul>
+        <li><strong>Model graph</strong> &mdash; the transformer layers as a fixed DAG, partitioned for TP / PP.</li>
+        <li><strong>Pre-selected kernels</strong> &mdash; one CUTLASS / cuBLASLt / Flash-Attn kernel per layer, tuned for the chosen GPU and batch profile.</li>
+        <li><strong>KV-cache manager</strong> &mdash; paged blocks, with sizes baked in.</li>
+        <li><strong>Scheduler</strong> &mdash; in-flight batching of prefill + decode at token granularity.</li>
+        <li><strong>Plugins</strong> &mdash; custom ops the graph compiler couldn't fuse on its own (e.g. attention).</li>
+    </ul>
+
+    <div class="callout">
+        <div class="callout-label">Picking the engine</div>
+        <p>If you are deploying a fixed model on H100 / B200 with a known traffic profile and care about peak tok/s/$ &mdash; <strong>TensorRT-LLM</strong>. If you are switching models often, supporting many quantization formats, or running on a heterogeneous fleet &mdash; <strong>vLLM</strong>. If your traffic is dominated by long shared prefixes (RAG, agent loops) &mdash; <strong>SGLang's RadixAttention</strong> can win by a lot. Most teams end up running two of the three side-by-side.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>Performance Model &mdash; Decode-Bound vs Prefill-Bound</h2>
+    <p>An LLM serving workload has two distinct phases, with different bottlenecks. Get this right and the rest of capacity planning falls into place.</p>
+
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Decode &mdash; bandwidth-bound</h4>
+            <p>One token at a time, batch usually small. Each token reads <strong>all of the model's weights once</strong> from HBM into the SMs, multiplies by a vector, writes a single new KV entry, and is done.</p>
+            <p>Tensor cores are largely idle &mdash; the matmul is matrix &times; vector, not matrix &times; matrix. The GPU spends almost all of its time waiting on HBM.</p>
+            <p style="margin-top:0.5rem;"><code>tok/s &asymp; HBM_BW / weight_bytes</code></p>
+            <p>For 70B FP8 (70 GB) on H200 (4.8 TB/s): <strong>~68 tok/s</strong> ceiling per stream.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Prefill &mdash; FLOPS-bound</h4>
+            <p>Whole prompt processed at once. Now the matmul is matrix (S tokens) &times; matrix (weights). Tensor cores do real work; HBM bandwidth is plentiful relative to compute.</p>
+            <p>Almost all time is in the big GEMMs of the MLP and attention output projections.</p>
+            <p style="margin-top:0.5rem;"><code>prefill_tps &asymp; TC_FLOPS / (2 &times; num_params)</code></p>
+            <p>The <em>2&times;</em> comes from one multiply + one add per parameter per token in the dominant matmul.</p>
+        </div>
+    </div>
+
+    <h3>The KV-cache cost</h3>
+    <p>Every new decode token writes a fresh row into the K and V caches:</p>
+    <p style="text-align:center; margin: 1rem 0;"><code>kv_per_token = 2 &times; num_layers &times; num_kv_heads &times; head_dim &times; bytes</code></p>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Model</th><th>Layers &times; kv_heads &times; head_dim</th><th>FP16 KV / token</th><th>FP8 KV / token</th></tr></thead>
+            <tbody>
+                <tr><td>Llama-3 8B</td><td>32 &times; 8 &times; 128</td><td>~131 KB</td><td>~66 KB</td></tr>
+                <tr><td>Llama-3 70B</td><td>80 &times; 8 &times; 128</td><td>~328 KB</td><td>~164 KB</td></tr>
+                <tr><td>Llama-3 405B (GQA)</td><td>126 &times; 8 &times; 128</td><td>~516 KB</td><td>~258 KB</td></tr>
+                <tr><td>Mistral 24B (GQA)</td><td>56 &times; 8 &times; 128</td><td>~229 KB</td><td>~115 KB</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="callout">
+        <div class="callout-label">Why this matters at 8K context</div>
+        <p>An 8K-context, batch-32 deployment of Llama-3 70B with FP8 KV consumes about <strong>40 GB</strong> of HBM <em>just for KV cache</em>, on top of the 70 GB of weights. That fits on H200 (141 GB) but not H100 (80 GB). Long contexts and large batches push you towards H200 / B200 / RTX PRO 6000 Blackwell long before the model itself does.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-10">
+    <div class="slide-number">10</div>
+    <h2>Tensor Parallel Scaling &mdash; How Architectures Differ</h2>
+    <p>Tensor parallel splits each weight matrix across N GPUs and inserts an all-reduce after every attention output and every MLP output. Whether N&times; throughput is realised depends entirely on how fast that all-reduce is relative to the GEMM it follows.</p>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Configuration</th><th>Link</th><th>8-GPU TP scaling factor</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>8&times; A100 80 GB SXM (DGX A100)</td><td>NVSwitch, NVLink 3 (600 GB/s)</td><td><strong>~7.0&times;</strong></td><td>Bandwidth ample; BF16 only, so compute is the slow part too.</td></tr>
+                <tr><td>8&times; H100 80 GB SXM (DGX H100)</td><td>NVSwitch, NVLink 4 (900 GB/s)</td><td><strong>~7.6&times;</strong></td><td>NVSwitch + NVLS reduce. FP8 doubles compute, but NVLink doubles too &mdash; ratios stay healthy.</td></tr>
+                <tr><td>8&times; B200 192 GB (HGX B200, NVL4 domain)</td><td>NVSwitch, NVLink 5 (1.8 TB/s)</td><td><strong>~7.8&times;</strong></td><td>NVLink 5 keeps up with FP8/FP4 compute. NVLS in-network reduce.</td></tr>
+                <tr><td>2&times; RTX 4090 24 GB</td><td>PCIe 4 x16 (~32 GB/s)</td><td><strong>~1.4&times;</strong></td><td>No NVLink. Each all-reduce stalls the pipeline; barely a win over single-GPU.</td></tr>
+                <tr><td>8&times; RTX 4090 24 GB (consumer rig)</td><td>PCIe 4 x16, no switch</td><td><strong>~3&ndash;4&times;</strong></td><td>PCIe trees, P2P often hampered by IOMMU; collective cost dominates.</td></tr>
+                <tr><td>2&times; RTX PRO 6000 Blackwell 96 GB</td><td>PCIe 5 x16, optional NVLink bridge</td><td>~1.7&ndash;1.9&times;</td><td>PCIe 5 helps; bridge if available pushes scaling to nearly linear on 2 GPUs.</td></tr>
+                <tr><td>72&times; B200 in NVL72 rack</td><td>NVLink 5 fabric, full mesh</td><td>~60&ndash;65&times; (model-dependent)</td><td>Whole rack acts as one GPU domain; NVLS reductions in switch silicon.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>The compute / bandwidth ratio</h3>
+    <p>The shape of TP scaling is not "NVLink = good, PCIe = bad" in isolation. It is the <strong>ratio</strong> of (GEMM time) to (all-reduce time). FP8 / FP4 halve or quarter the GEMM time without changing the all-reduce. So as you adopt lower precisions, the relative cost of comms goes up, and the gap between an NVLink box and a PCIe box widens. Hopper and Blackwell only really shine when the link beneath them is fast enough to feed the new tensor cores.</p>
+
+    <div class="callout">
+        <div class="callout-label">Practical implication</div>
+        <p>An 8&times;4090 PCIe rig is not "75% of an 8&times;A100". For TP serving it is closer to 40&ndash;50% of an 8&times;A100 because the all-reduce dominates. The right comparison for a consumer-card rig is not "smaller TP", it is "more independent DP replicas with a router in front" &mdash; which gives you near-linear throughput for free.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-11">
+    <div class="slide-number">11</div>
+    <h2>Interactive: End-to-End LLM Performance Model</h2>
+    <p>Combine everything from the earlier slides into a single calculator. Pick a model, a precision, a GPU, a batch size and a sequence length, and get a quick verdict on whether you are decode-bound, prefill-bound, or out of VRAM.</p>
+
+    <div class="control-panel">
+        <div class="control-row">
+            <label for="pm-model">Model size</label>
+            <select id="pm-model">
+                <option value="1">1 B</option>
+                <option value="7" selected>7 B</option>
+                <option value="13">13 B</option>
+                <option value="32">32 B</option>
+                <option value="70">70 B</option>
+                <option value="405">405 B</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label for="pm-prec">Precision</label>
+            <select id="pm-prec">
+                <option value="fp16" selected>FP16 / BF16 (2.0 B/param)</option>
+                <option value="fp8">FP8 (1.0 B/param)</option>
+                <option value="mxfp4">MX-FP4 (0.55 B/param)</option>
+                <option value="int4">INT4 / AWQ (0.55 B/param)</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label for="pm-gpu">GPU</label>
+            <select id="pm-gpu">
+                <option value="rtx4090">RTX 4090 24 GB &middot; Ada &middot; 1008 GB/s</option>
+                <option value="rtx5090">RTX 5090 32 GB &middot; Blackwell &middot; 1792 GB/s</option>
+                <option value="a100">A100 80 GB &middot; Ampere &middot; 2039 GB/s</option>
+                <option value="h100" selected>H100 80 GB SXM &middot; Hopper &middot; 3350 GB/s</option>
+                <option value="h200">H200 141 GB &middot; Hopper &middot; 4800 GB/s</option>
+                <option value="b200">B200 192 GB &middot; Blackwell &middot; 8000 GB/s</option>
+                <option value="l40s">L40S 48 GB &middot; Ada &middot; 864 GB/s</option>
+                <option value="rtxpro6000">RTX PRO 6000 Blackwell 96 GB &middot; 1792 GB/s</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label for="pm-batch">Batch size</label>
+            <select id="pm-batch">
+                <option value="1" selected>1</option>
+                <option value="8">8</option>
+                <option value="32">32</option>
+                <option value="128">128</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label for="pm-seq">Sequence length</label>
+            <select id="pm-seq">
+                <option value="512">512</option>
+                <option value="2048" selected>2048</option>
+                <option value="8192">8192</option>
+            </select>
+        </div>
+
+        <div class="metric-grid">
+            <div class="metric"><div class="metric-label">Weight bytes</div><div class="metric-value" id="pm-wb">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">Fits VRAM?</div><div class="metric-value" id="pm-fit">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">Decode tok/s (b=1)</div><div class="metric-value" id="pm-dec">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">Throughput tok/s</div><div class="metric-value" id="pm-tp">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">Prefill tok/s</div><div class="metric-value" id="pm-pre">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">KV @ batch&times;seq</div><div class="metric-value" id="pm-kv">&mdash;</div></div>
+        </div>
+
+        <div id="pm-out" class="result-box"></div>
+    </div>
+
+    <script>
+    (function(){
+        const gpus = {
+            'rtx4090':    { name:'RTX 4090',     vram: 24, bw:1008, tcFp16: 165, tcFp8: 330,  tcFp4: 0,    fp8:'no'  },
+            'rtx5090':    { name:'RTX 5090',     vram: 32, bw:1792, tcFp16: 209, tcFp8: 419,  tcFp4: 838,  fp8:'native' },
+            'a100':       { name:'A100 80GB',    vram: 80, bw:2039, tcFp16: 312, tcFp8: 312,  tcFp4: 0,    fp8:'emul' },
+            'h100':       { name:'H100 80GB SXM',vram: 80, bw:3350, tcFp16: 989, tcFp8: 1979, tcFp4: 0,    fp8:'native' },
+            'h200':       { name:'H200 141GB',   vram:141, bw:4800, tcFp16: 989, tcFp8: 1979, tcFp4: 0,    fp8:'native' },
+            'b200':       { name:'B200 192GB',   vram:192, bw:8000, tcFp16: 2250,tcFp8: 4500, tcFp4: 9000, fp8:'native' },
+            'l40s':       { name:'L40S 48GB',    vram: 48, bw:864,  tcFp16: 362, tcFp8: 733,  tcFp4: 0,    fp8:'native' },
+            'rtxpro6000': { name:'RTX PRO 6000 Blackwell', vram: 96, bw:1792, tcFp16: 209, tcFp8: 419, tcFp4: 838, fp8:'native' }
+        };
+
+        // Bytes per parameter and KV bytes per element by precision
+        const precInfo = {
+            'fp16':  { wb: 2.0,  kv: 2.0, label: 'FP16'  },
+            'fp8':   { wb: 1.0,  kv: 1.0, label: 'FP8'   },
+            'mxfp4': { wb: 0.55, kv: 1.0, label: 'MX-FP4' },
+            'int4':  { wb: 0.55, kv: 1.0, label: 'INT4 AWQ' }
+        };
+
+        // Rough per-model KV-per-token (bytes per token at FP16)
+        // From slide 09 numbers; scale by 0.5 for FP8/FP4 KV.
+        const modelKvFp16 = { 1: 16*1024, 7: 131*1024, 13: 200*1024, 32: 250*1024, 70: 328*1024, 405: 516*1024 };
+
+        function fmtGB(b){ return (b/1e9).toFixed(1) + ' GB'; }
+        function fmtTok(t){ return t < 1 ? t.toFixed(2) : Math.round(t).toLocaleString(); }
+
+        function calc(){
+            const M    = +document.getElementById('pm-model').value;       // params in B
+            const pK   = document.getElementById('pm-prec').value;
+            const gK   = document.getElementById('pm-gpu').value;
+            const B    = +document.getElementById('pm-batch').value;
+            const S    = +document.getElementById('pm-seq').value;
+
+            const p = precInfo[pK];
+            const g = gpus[gK];
+
+            // Weight bytes
+            const weightBytes = M * 1e9 * p.wb;     // bytes
+            const weightGB    = weightBytes / 1e9;
+
+            // KV per token (bytes); FP8/FP4 KV halves the FP16 number
+            const kvScale = (pK === 'fp16') ? 1.0 : 0.5;
+            const kvPerTok = (modelKvFp16[M] || 200*1024) * kvScale;
+            const kvTotal  = B * S * kvPerTok;          // bytes
+            const kvGB     = kvTotal / 1e9;
+
+            const totalGB = weightGB + kvGB;
+            const fitsBadge = totalGB < g.vram ? '<span class="badge ok">fits ('+totalGB.toFixed(1)+' GB / '+g.vram+' GB)</span>'
+                                               : '<span class="badge bad">over VRAM ('+totalGB.toFixed(1)+' GB / '+g.vram+' GB)</span>';
+
+            // Decode (single stream): bandwidth / weight_bytes
+            // If precision unsupported on this GPU (e.g. FP8 on 4090, FP4 on H100), simulate on next-best:
+            //   - FP8 on no-FP8 GPU: weight bytes still 1.0/param (bandwidth win) but compute = FP16 path.
+            //   - FP4 on no-FP4 GPU: same idea.
+            const decodeTokPerSec = g.bw * 1e9 / weightBytes;
+
+            // Prefill: tensor-flops bound. Pick TC TFLOPS for this precision.
+            // FP4 falls back to FP8 path on non-FP4 GPUs; FP8 falls back to FP16 path on no-FP8 GPUs.
+            let tcTflops = g.tcFp16;
+            if (pK === 'fp8' && g.tcFp8 > 0) tcTflops = g.tcFp8;
+            if (pK === 'mxfp4' && g.tcFp4 > 0) tcTflops = g.tcFp4;
+            else if (pK === 'mxfp4' && g.tcFp8 > 0) tcTflops = g.tcFp8;
+            if (pK === 'int4') tcTflops = g.tcFp16;       // INT4 dequant before MMA on most paths
+            const prefillTps = tcTflops * 1e12 / (2 * M * 1e9);   // tokens / s of prompt processed
+
+            // Throughput at batch B (rough, decode regime). At small batch, throughput ~= decode * B.
+            // At big batch, kernels become compute-bound; cap at ~min(prefillTps, decode*B).
+            const throughput = Math.min(decodeTokPerSec * B, prefillTps);
+
+            // ---- write outputs ----
+            document.getElementById('pm-wb').textContent  = weightGB.toFixed(1) + ' GB';
+            document.getElementById('pm-fit').innerHTML   = totalGB < g.vram ? '<span style="color:var(--accent)">yes</span>' : '<span style="color:#ff7b72">no</span>';
+            document.getElementById('pm-dec').textContent = fmtTok(decodeTokPerSec);
+            document.getElementById('pm-tp').textContent  = fmtTok(throughput);
+            document.getElementById('pm-pre').textContent = fmtTok(prefillTps);
+            document.getElementById('pm-kv').textContent  = kvGB.toFixed(2) + ' GB';
+
+            // verdict
+            let verdict;
+            if (totalGB > g.vram) {
+                verdict = '<span class="line-val">VRAM-bound.</span> ' + p.label + ' ' + M + 'B on ' + g.name +
+                    ' needs ' + totalGB.toFixed(1) + ' GB but the card has ' + g.vram + ' GB. Drop precision, shorter seq, or shard across GPUs.';
+            } else if (B === 1) {
+                verdict = '<span class="line-val">Decode-bound.</span> Single stream is bandwidth-limited at ~' +
+                    Math.round(decodeTokPerSec) + ' tok/s &mdash; ' + g.bw + ' GB/s &divide; ' + weightGB.toFixed(1) + ' GB of weights. ' +
+                    'Tensor cores are mostly idle.';
+            } else if (decodeTokPerSec * B > prefillTps) {
+                verdict = '<span class="line-val">Prefill-bound.</span> At batch ' + B + ', decode would saturate at ' +
+                    Math.round(decodeTokPerSec * B) + ' tok/s, but prefill caps you at ' + Math.round(prefillTps) + ' tok/s &mdash; ' +
+                    'tensor-core FLOPS / (2 &times; params). More compute, not more bandwidth, is what helps now.';
+            } else {
+                verdict = '<span class="line-val">Decode-bound, batched.</span> Effective throughput ~' +
+                    Math.round(throughput) + ' tok/s; you are still bandwidth-limited but spreading the cost across ' + B +
+                    ' concurrent users.';
+            }
+            // Compatibility caveats
+            const caveats = [];
+            if ((pK === 'fp8') && g.fp8 === 'no')   caveats.push('FP8 not supported on ' + g.name + ' &mdash; bandwidth win only, compute = FP16.');
+            if ((pK === 'fp8') && g.fp8 === 'emul') caveats.push('FP8 emulated on ' + g.name + ' &mdash; bandwidth win, compute = BF16.');
+            if ((pK === 'mxfp4') && g.tcFp4 === 0)  caveats.push('MX-FP4 native only on Blackwell &mdash; ' + g.name + ' would dequant to FP8/FP16 first.');
+
+            document.getElementById('pm-out').innerHTML =
+                '<div>' + fitsBadge + '</div>' +
+                '<div style="margin-top:0.4rem;">' + verdict + '</div>' +
+                (caveats.length ? '<div style="margin-top:0.4rem;color:var(--text-secondary);">' + caveats.map(c => '&middot; '+c).join('<br>') + '</div>' : '');
+        }
+
+        ['pm-model','pm-prec','pm-gpu','pm-batch','pm-seq'].forEach(id => document.getElementById(id).addEventListener('change', calc));
+        calc();
+    })();
+    </script>
+
+    <div class="callout">
+        <div class="callout-label">How to read this</div>
+        <p>The single-stream decode tok/s is a hard physical ceiling &mdash; <code>HBM_BW / weight_bytes</code>. The throughput number assumes you are batching well; in reality scheduler overhead, attention costs, and KV pressure pull it 20&ndash;40% lower. The prefill number is the rate at which prompt tokens get turned into KV entries on the first forward pass &mdash; it is what determines TTFT (time-to-first-token) for long prompts.</p>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════ Footer ════════════════════════════════════ -->
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLMs#nvidia-gpu-architectures">NVIDIA GPU Architectures Series</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://github.com/BrendanJamesLynskey/LLMs#nvidia-gpu-architectures">Back to Series Index</a></p>
+</footer>
+
+<script>
+    // Smooth scroll for TOC links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    // Subtle fade-in on scroll
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+
+</body>
+</html>
