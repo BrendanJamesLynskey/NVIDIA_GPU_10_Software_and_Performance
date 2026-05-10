@@ -872,7 +872,7 @@
                 <tr><td>Ampere (A100, 30xx, A40, A6000)</td><td>8.0 / 8.6</td><td>CUDA 11.0+</td><td>Third-gen tensor cores, BF16, async copy.</td></tr>
                 <tr><td>Ada Lovelace (40xx, L4, L40S)</td><td>8.9</td><td>CUDA 11.8+</td><td>FP8 tensor cores on L40S; SM89 PTX target.</td></tr>
                 <tr><td>Hopper (H100, H200, GH200)</td><td>9.0</td><td>CUDA 11.8+ (12.x recommended)</td><td>WGMMA, TMA, thread-block clusters, FP8.</td></tr>
-                <tr><td>Blackwell (B100, B200, GB200, 50xx)</td><td>10.0 / 12.0</td><td>CUDA 12.5+</td><td>5th-gen tensor cores, MX-FP4, TMEM.</td></tr>
+                <tr><td>Blackwell (B100, B200, GB200, 50xx)</td><td>10.0 / 12.0</td><td>CUDA 12.5+</td><td>5th-gen tensor cores, NVFP4 / MX-FP4, TMEM.</td></tr>
             </tbody>
         </table>
     </div>
@@ -895,7 +895,7 @@
         </div>
         <div class="diagram-panel accent-border">
             <h4>cuBLASLt &mdash; "Lt" = light-weight</h4>
-            <p>Newer API with <em>problem descriptors</em> and <em>algorithm heuristics</em>. The library inspects matrix shapes, layouts, alignment and bias/activation epilogues, then selects the best kernel from its catalogue. Required for FP8 (Hopper+) and MX-FP4 (Blackwell). PyTorch's <code>torch.matmul</code> dispatches here for big shapes.</p>
+            <p>Newer API with <em>problem descriptors</em> and <em>algorithm heuristics</em>. The library inspects matrix shapes, layouts, alignment and bias/activation epilogues, then selects the best kernel from its catalogue. Required for FP8 (Hopper+) and FP4 microscaling &mdash; both NVFP4 (16-element blocks, E4M3 scale) and MX-FP4 (32-element blocks, E8M0 scale) on Blackwell. PyTorch's <code>torch.matmul</code> dispatches here for big shapes.</p>
         </div>
     </div>
 
@@ -978,7 +978,7 @@ graph.<span class="fn">execute</span>({q: Q, k: K, v: V, o: O}, workspace)</code
 
     <div class="callout">
         <div class="callout-label">Why frameworks moved to cuDNN attention</div>
-        <p>Before cuDNN 9, the universe of fused-attention kernels was a maze of community CUDA &mdash; flash-attn-2, xFormers, custom Triton, every one with its own quirks. cuDNN 9 centralised it: one frontend, one kernel catalogue, hardware-vendor-supported, with FP8 paths on Hopper and MX-FP4 paths on Blackwell. PyTorch's <code>F.scaled_dot_product_attention</code> now prefers cuDNN's implementation when available.</p>
+        <p>Before cuDNN 9, the universe of fused-attention kernels was a maze of community CUDA &mdash; flash-attn-2, xFormers, custom Triton, every one with its own quirks. cuDNN 9 centralised it: one frontend, one kernel catalogue, hardware-vendor-supported, with FP8 paths on Hopper and NVFP4 / MX-FP4 paths on Blackwell. PyTorch's <code>F.scaled_dot_product_attention</code> now prefers cuDNN's implementation when available.</p>
     </div>
 </section>
 
@@ -1019,7 +1019,7 @@ graph.<span class="fn">execute</span>({q: Q, k: K, v: V, o: O}, workspace)</code
         <div class="hierarchy-level">
             <div class="hierarchy-label">Blackwell</div>
             <div class="hierarchy-items">
-                <span class="hierarchy-item">MX-FP4 atoms</span>
+                <span class="hierarchy-item">NVFP4 / MX-FP4 atoms</span>
                 <span class="hierarchy-item">TMEM accumulators</span>
                 <span class="hierarchy-item">5th-gen MMA</span>
                 <span class="hierarchy-item">UMMA</span>
@@ -1050,14 +1050,14 @@ graph.<span class="fn">execute</span>({q: Q, k: K, v: V, o: O}, workspace)</code
 
     <div class="callout">
         <div class="callout-label">Version pin</div>
-        <p>CUTLASS <strong>3.x</strong> is the rewrite around <em>CuTe</em> (the new layout algebra) and is required for Hopper WGMMA-aware kernels. CUTLASS <strong>3.5+</strong> introduced first-class MX-FP4 atoms for Blackwell. If you are studying flash-attention-3, DeepSeek's grouped GEMM, or NVIDIA's MoE kernels, you are reading CUTLASS 3.x.</p>
+        <p>CUTLASS <strong>3.x</strong> is the rewrite around <em>CuTe</em> (the new layout algebra) and is required for Hopper WGMMA-aware kernels. CUTLASS <strong>3.5+</strong> introduced first-class NVFP4 / MX-FP4 atoms for Blackwell. If you are studying flash-attention-3, DeepSeek's grouped GEMM, or NVIDIA's MoE kernels, you are reading CUTLASS 3.x.</p>
     </div>
 </section>
 
 <section class="slide" id="slide-05">
     <div class="slide-number">05</div>
     <h2>Transformer Engine &mdash; Auto FP8/FP4</h2>
-    <p>Decks 03 and 07 covered the silicon: per-tensor FP8 scales on Hopper, per-microblock MX-FP4 on Blackwell. Deck 09 covered the second-gen Transformer Engine on Blackwell. <strong>Transformer Engine the library</strong> is the piece that drives the silicon.</p>
+    <p>Decks 03 and 07 covered the silicon: per-tensor FP8 scales on Hopper, per-microblock FP4 (NVFP4 and MX-FP4) on Blackwell. Deck 09 covered the second-gen Transformer Engine on Blackwell. <strong>Transformer Engine the library</strong> is the piece that drives the silicon.</p>
 
     <div class="diagram-grid cols-2">
         <div class="diagram-panel accent-border">
@@ -1073,7 +1073,7 @@ graph.<span class="fn">execute</span>({q: Q, k: K, v: V, o: O}, workspace)</code
         <div class="diagram-panel accent-border">
             <h4>Hopper vs Blackwell scaling</h4>
             <p>Hopper TE: <strong>per-tensor</strong> scale. One scaling factor per (weight, activation) tensor. Good enough for most LLMs.</p>
-            <p>Blackwell TE2: <strong>per-microblock</strong> MX-FP4. Each block of 32 elements has its own E8M0 scale, supported in hardware. Quality is materially better, allowing FP4 weights for inference.</p>
+            <p>Blackwell TE2: <strong>per-microblock</strong> FP4. Two formats supported in hardware &mdash; <strong>NVFP4</strong> (16-element blocks, E4M3 scale + per-tensor FP32 scale; default in TE / TRT-LLM) and the open OCP <strong>MX-FP4</strong> (32-element blocks, E8M0 scale). Quality is materially better than per-tensor scaling, allowing FP4 weights for inference.</p>
             <p>Both expose the same Python API; the engine picks the right kernel.</p>
         </div>
     </div>
@@ -1260,7 +1260,7 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
                 <tr><td>Build model</td><td>Offline-compiled <em>engine</em> per (model, GPU, precision)</td><td>JIT graph at load time</td><td>JIT graph at load time</td></tr>
                 <tr><td>Cold start</td><td><span class="badge bad">slow</span> minutes; engine build is heavy</td><td><span class="badge ok">fast</span> seconds</td><td><span class="badge ok">fast</span> seconds</td></tr>
                 <tr><td>KV-cache scheme</td><td>Paged + in-flight batching</td><td>PagedAttention + continuous batching</td><td>RadixAttention &mdash; prefix-shared KV</td></tr>
-                <tr><td>Precisions</td><td>FP16, BF16, FP8 (Hopper+), MX-FP4 (Blackwell), INT4 AWQ</td><td>FP16, BF16, FP8, MX-FP4, AWQ, GPTQ</td><td>FP16, BF16, FP8, AWQ</td></tr>
+                <tr><td>Precisions</td><td>FP16, BF16, FP8 (Hopper+), NVFP4 / MX-FP4 (Blackwell), INT4 AWQ</td><td>FP16, BF16, FP8, NVFP4 / MX-FP4, AWQ, GPTQ</td><td>FP16, BF16, FP8, AWQ</td></tr>
                 <tr><td>Custom kernels</td><td>NVIDIA-tuned CUTLASS, plugins</td><td>CUDA + Triton + Flash-Attn</td><td>CUDA + Triton, plus structured-output pipeline</td></tr>
                 <tr><td>Throughput</td><td><span class="badge ok">peak</span> on supported configs</td><td>Strong, very close to TRT-LLM</td><td>Strong, especially with shared prefixes</td></tr>
                 <tr><td>Ease of use</td><td><span class="badge warn">heavy</span> per-engine build</td><td><span class="badge ok">light</span> install + serve</td><td><span class="badge ok">light</span></td></tr>
@@ -1379,7 +1379,7 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
             <select id="pm-prec">
                 <option value="fp16" selected>FP16 / BF16 (2.0 B/param)</option>
                 <option value="fp8">FP8 (1.0 B/param)</option>
-                <option value="mxfp4">MX-FP4 (0.55 B/param)</option>
+                <option value="mxfp4">NVFP4 / MX-FP4 (0.55 B/param)</option>
                 <option value="int4">INT4 / AWQ (0.55 B/param)</option>
             </select>
         </div>
@@ -1443,7 +1443,7 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
         const precInfo = {
             'fp16':  { wb: 2.0,  kv: 2.0, label: 'FP16'  },
             'fp8':   { wb: 1.0,  kv: 1.0, label: 'FP8'   },
-            'mxfp4': { wb: 0.55, kv: 1.0, label: 'MX-FP4' },
+            'mxfp4': { wb: 0.55, kv: 1.0, label: 'NVFP4 / MX-FP4' },
             'int4':  { wb: 0.55, kv: 1.0, label: 'INT4 AWQ' }
         };
 
@@ -1527,7 +1527,7 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
             const caveats = [];
             if ((pK === 'fp8') && g.fp8 === 'no')   caveats.push('FP8 not supported on ' + g.name + ' &mdash; bandwidth win only, compute = FP16.');
             if ((pK === 'fp8') && g.fp8 === 'emul') caveats.push('FP8 emulated on ' + g.name + ' &mdash; bandwidth win, compute = BF16.');
-            if ((pK === 'mxfp4') && g.tcFp4 === 0)  caveats.push('MX-FP4 native only on Blackwell &mdash; ' + g.name + ' would dequant to FP8/FP16 first.');
+            if ((pK === 'mxfp4') && g.tcFp4 === 0)  caveats.push('NVFP4 / MX-FP4 native only on Blackwell &mdash; ' + g.name + ' would dequant to FP8/FP16 first.');
 
             document.getElementById('pm-out').innerHTML =
                 '<div>' + fitsBadge + '</div>' +
