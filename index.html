@@ -870,9 +870,9 @@
             <thead><tr><th>Architecture</th><th>Compute capability</th><th>Min CUDA toolkit</th><th>Why</th></tr></thead>
             <tbody>
                 <tr><td>Ampere (A100, 30xx, A40, A6000)</td><td>8.0 / 8.6</td><td>CUDA 11.0+</td><td>Third-gen tensor cores, BF16, async copy.</td></tr>
-                <tr><td>Ada Lovelace (40xx, L4, L40S)</td><td>8.9</td><td>CUDA 11.8+</td><td>FP8 tensor cores on L40S; SM89 PTX target.</td></tr>
+                <tr><td>Ada Lovelace (40xx, L4, L40S)</td><td>8.9</td><td>CUDA 11.8+</td><td>FP8 tensor cores (all Ada); SM89 PTX target.</td></tr>
                 <tr><td>Hopper (H100, H200, GH200)</td><td>9.0</td><td>CUDA 11.8+ (12.x recommended)</td><td>WGMMA, TMA, thread-block clusters, FP8.</td></tr>
-                <tr><td>Blackwell (B100, B200, GB200, 50xx)</td><td>10.0 / 12.0</td><td>CUDA 12.5+</td><td>5th-gen tensor cores, NVFP4 / MX-FP4, TMEM.</td></tr>
+                <tr><td>Blackwell (B100, B200, GB200, 50xx)</td><td>10.0 / 12.0</td><td>CUDA 12.8+</td><td>5th-gen tensor cores, NVFP4 / MX-FP4, TMEM.</td></tr>
             </tbody>
         </table>
     </div>
@@ -1050,7 +1050,7 @@ graph.<span class="fn">execute</span>({q: Q, k: K, v: V, o: O}, workspace)</code
 
     <div class="callout">
         <div class="callout-label">Version pin</div>
-        <p>CUTLASS <strong>3.x</strong> is the rewrite around <em>CuTe</em> (the new layout algebra) and is required for Hopper WGMMA-aware kernels. CUTLASS <strong>3.5+</strong> introduced first-class NVFP4 / MX-FP4 atoms for Blackwell. If you are studying flash-attention-3, DeepSeek's grouped GEMM, or NVIDIA's MoE kernels, you are reading CUTLASS 3.x.</p>
+        <p>CUTLASS <strong>3.x</strong> is the rewrite around <em>CuTe</em> (the new layout algebra) and is required for Hopper WGMMA-aware kernels. CUTLASS <strong>3.8+</strong> introduced first-class NVFP4 / MX-FP4 atoms for Blackwell. If you are studying flash-attention-3, DeepSeek's grouped GEMM, or NVIDIA's MoE kernels, you are reading CUTLASS 3.x.</p>
     </div>
 </section>
 
@@ -1317,7 +1317,7 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
                 <tr><td>Llama-3 8B</td><td>32 &times; 8 &times; 128</td><td>~131 KB</td><td>~66 KB</td></tr>
                 <tr><td>Llama-3 70B</td><td>80 &times; 8 &times; 128</td><td>~328 KB</td><td>~164 KB</td></tr>
                 <tr><td>Llama-3 405B (GQA)</td><td>126 &times; 8 &times; 128</td><td>~516 KB</td><td>~258 KB</td></tr>
-                <tr><td>Mistral 24B (GQA)</td><td>56 &times; 8 &times; 128</td><td>~229 KB</td><td>~115 KB</td></tr>
+                <tr><td>Mistral 24B (GQA)</td><td>40 &times; 8 &times; 128</td><td>~164 KB</td><td>~82 KB</td></tr>
             </tbody>
         </table>
     </div>
@@ -1342,7 +1342,7 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
                 <tr><td>8&times; B200 192 GB (HGX B200, NVL4 domain)</td><td>NVSwitch, NVLink 5 (1.8 TB/s)</td><td><strong>~7.8&times;</strong></td><td>NVLink 5 keeps up with FP8/FP4 compute. NVLS in-network reduce.</td></tr>
                 <tr><td>2&times; RTX 4090 24 GB</td><td>PCIe 4 x16 (~32 GB/s)</td><td><strong>~1.4&times;</strong></td><td>No NVLink. Each all-reduce stalls the pipeline; barely a win over single-GPU.</td></tr>
                 <tr><td>8&times; RTX 4090 24 GB (consumer rig)</td><td>PCIe 4 x16, no switch</td><td><strong>~3&ndash;4&times;</strong></td><td>PCIe trees, P2P often hampered by IOMMU; collective cost dominates.</td></tr>
-                <tr><td>2&times; RTX PRO 6000 Blackwell 96 GB</td><td>PCIe 5 x16, optional NVLink bridge</td><td>~1.7&ndash;1.9&times;</td><td>PCIe 5 helps; bridge if available pushes scaling to nearly linear on 2 GPUs.</td></tr>
+                <tr><td>2&times; RTX PRO 6000 Blackwell 96 GB</td><td>PCIe 5 x16 (no NVLink)</td><td>~1.7&ndash;1.9&times;</td><td>PCIe 5 helps; there is no NVLink bridge on this card.</td></tr>
                 <tr><td>72&times; B200 in NVL72 rack</td><td>NVLink 5 fabric, full mesh</td><td>~60&ndash;65&times; (model-dependent)</td><td>Whole rack acts as one GPU domain; NVLS reductions in switch silicon.</td></tr>
             </tbody>
         </table>
@@ -1429,14 +1429,14 @@ fp8_recipe = recipe.<span class="type">DelayedScaling</span>(
     <script>
     (function(){
         const gpus = {
-            'rtx4090':    { name:'RTX 4090',     vram: 24, bw:1008, tcFp16: 165, tcFp8: 330,  tcFp4: 0,    fp8:'no'  },
-            'rtx5090':    { name:'RTX 5090',     vram: 32, bw:1792, tcFp16: 209, tcFp8: 419,  tcFp4: 838,  fp8:'native' },
+            'rtx4090':    { name:'RTX 4090',     vram: 24, bw:1008, tcFp16: 165, tcFp8: 330,  tcFp4: 0,    fp8:'native' },
+            'rtx5090':    { name:'RTX 5090',     vram: 32, bw:1792, tcFp16: 209, tcFp8: 419,  tcFp4: 1676, fp8:'native' },
             'a100':       { name:'A100 80GB',    vram: 80, bw:2039, tcFp16: 312, tcFp8: 312,  tcFp4: 0,    fp8:'emul' },
             'h100':       { name:'H100 80GB SXM',vram: 80, bw:3350, tcFp16: 989, tcFp8: 1979, tcFp4: 0,    fp8:'native' },
             'h200':       { name:'H200 141GB',   vram:141, bw:4800, tcFp16: 989, tcFp8: 1979, tcFp4: 0,    fp8:'native' },
             'b200':       { name:'B200 192GB',   vram:192, bw:8000, tcFp16: 2250,tcFp8: 4500, tcFp4: 9000, fp8:'native' },
             'l40s':       { name:'L40S 48GB',    vram: 48, bw:864,  tcFp16: 362, tcFp8: 733,  tcFp4: 0,    fp8:'native' },
-            'rtxpro6000': { name:'RTX PRO 6000 Blackwell', vram: 96, bw:1792, tcFp16: 209, tcFp8: 419, tcFp4: 838, fp8:'native' }
+            'rtxpro6000': { name:'RTX PRO 6000 Blackwell', vram: 96, bw:1792, tcFp16: 500, tcFp8: 1000, tcFp4: 2000, fp8:'native' }
         };
 
         // Bytes per parameter and KV bytes per element by precision
